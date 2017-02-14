@@ -34,7 +34,7 @@
     <TargetName>_caffe</TargetName>
   </PropertyGroup>
   <PropertyGroup>
-    <IncludePath>$(PythonDir)\Lib\site-packages\numpy\core\include\;$(IncludePath)</IncludePath>
+    <IncludePath>$(PythonDir)\Lib\site-packages\numpy\core\include\;$(IncludePath);C:\Program Files\Anaconda2\include</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Link>
@@ -56,6 +56,9 @@
     <PostBuildEvent>
       <Command>"$(ScriptsDir)\PythonPostBuild.cmd" "$(SolutionDir)" "$(OutDir)"</Command>
     </PostBuildEvent>
+    <Link>
+      <AdditionalLibraryDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Program Files\Miniconda2\Lib</AdditionalLibraryDirectories>
+    </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\python\caffe\_caffe.cpp" />
