@@ -74,11 +74,9 @@ Global
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{A9ACEF83-7B63-4574-A554-89CE869EA141}.Debug|x64.ActiveCfg = Debug|x64
-		{A9ACEF83-7B63-4574-A554-89CE869EA141}.Debug|x64.Build.0 = Debug|x64
 		{A9ACEF83-7B63-4574-A554-89CE869EA141}.Release|x64.ActiveCfg = Release|x64
 		{A9ACEF83-7B63-4574-A554-89CE869EA141}.Release|x64.Build.0 = Release|x64
 		{CE6BBC46-9EFC-4029-9065-85A023866AFB}.Debug|x64.ActiveCfg = Debug|x64
-		{CE6BBC46-9EFC-4029-9065-85A023866AFB}.Debug|x64.Build.0 = Debug|x64
 		{CE6BBC46-9EFC-4029-9065-85A023866AFB}.Release|x64.ActiveCfg = Release|x64
 		{CE6BBC46-9EFC-4029-9065-85A023866AFB}.Release|x64.Build.0 = Release|x64
 		{09A8EDAC-20B9-414F-9654-961388FD5A8C}.Debug|x64.ActiveCfg = Debug|x64
@@ -103,6 +101,7 @@ Global
 		{B166B643-C90B-4903-B735-D2D4ED4F2248}.Release|x64.ActiveCfg = Release|x64
 		{B166B643-C90B-4903-B735-D2D4ED4F2248}.Release|x64.Build.0 = Release|x64
 		{273E7766-61AA-437C-BCA9-4CA7FE0484D4}.Debug|x64.ActiveCfg = Debug|x64
+		{273E7766-61AA-437C-BCA9-4CA7FE0484D4}.Debug|x64.Build.0 = Debug|x64
 		{273E7766-61AA-437C-BCA9-4CA7FE0484D4}.Release|x64.ActiveCfg = Release|x64
 		{273E7766-61AA-437C-BCA9-4CA7FE0484D4}.Release|x64.Build.0 = Release|x64
 		{73EED2A0-EED0-4514-8C95-ADA25CD3C72D}.Debug|x64.ActiveCfg = Debug|x64
