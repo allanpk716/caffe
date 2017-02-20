@@ -130,3 +130,11 @@ The previous windows build based on Visual Studio project files is now deprecate
 ## Further Details
 
 Refer to the BVLC/caffe master branch README for all other details such as license, citation, and so on.
+
+## Data Augmentation Feature
+
+In my case, I download the official caffe project and use VS2013 to build it, but I found the caffe.exe(VS2013) can't work with LEVELDB, but LMDB works well.So that's the thing you should know.
+
+you can see the details in the Org Projcet https://github.com/kevinlin311tw/caffe-augmentation
+and 
+original author answered how to implement Data Augmentation Feature in this page https://github.com/kevinlin311tw/caffe-augmentation/issues/3
