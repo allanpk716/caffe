@@ -27,17 +27,17 @@ public:
 	           const string& mean_file,
 	           const string& label_file);
 
-	vector<Prediction> Classify(const cv::Mat& img, int N = 5);
+	vector<Prediction> Classify(const cv::Mat& img, bool bHaveMeanFile = true, int N = 5);
 
 private:
 	void SetMean(const string& mean_file);
 
-	vector<float> Predict(const cv::Mat& img);
+	vector<float> Predict(const cv::Mat& img, bool bHaveMeanFile);
 
 	void WrapInputLayer(vector<cv::Mat>* input_channels);
 
 	void Preprocess(const cv::Mat& img,
-	                vector<cv::Mat>* input_channels);
+	                vector<cv::Mat>* input_channels, bool bHaveMeanFile);
 
 private:
 	shared_ptr<Net<float>> net_;
@@ -107,9 +107,9 @@ static vector<int> Argmax(const vector<float>& v, int N)
 }
 
 /* Return the top N predictions. */
-vector<Prediction> Classifier::Classify(const cv::Mat& img, int N)
+vector<Prediction> Classifier::Classify(const cv::Mat& img, bool bHaveMeanFile, int N)
 {
-	vector<float> output = Predict(img);
+	vector<float> output = Predict(img, bHaveMeanFile);
 
 	N = std::min<int>(labels_.size(), N);
 	vector<int> maxN = Argmax(output, N);
@@ -126,6 +126,11 @@ vector<Prediction> Classifier::Classify(const cv::Mat& img, int N)
 /* Load the mean file in binaryproto format. */
 void Classifier::SetMean(const string& mean_file)
 {
+	if (mean_file.compare("") == 0)
+	{
+		return;
+	}
+
 	BlobProto blob_proto;
 	ReadProtoFromBinaryFileOrDie(mean_file.c_str(), &blob_proto);
 
@@ -156,7 +161,7 @@ void Classifier::SetMean(const string& mean_file)
 	mean_ = cv::Mat(input_geometry_, mean.type(), channel_mean);
 }
 
-vector<float> Classifier::Predict(const cv::Mat& img)
+vector<float> Classifier::Predict(const cv::Mat& img, bool bHaveMeanFile)
 {
 	Blob<float>* input_layer = net_->input_blobs()[0];
 	input_layer->Reshape(1, num_channels_,
@@ -167,7 +172,7 @@ vector<float> Classifier::Predict(const cv::Mat& img)
 	vector<cv::Mat> input_channels;
 	WrapInputLayer(&input_channels);
 
-	Preprocess(img, &input_channels);
+	Preprocess(img, &input_channels, bHaveMeanFile);
 
 	net_->Forward();
 
@@ -199,7 +204,7 @@ void Classifier::WrapInputLayer(vector<cv::Mat>* input_channels)
 }
 
 void Classifier::Preprocess(const cv::Mat& img,
-                            vector<cv::Mat>* input_channels)
+                            vector<cv::Mat>* input_channels, bool bHaveMeanFile)
 {
 	/* Convert the input image to the input image format of the network. */
 	cv::Mat sample;
@@ -226,13 +231,23 @@ void Classifier::Preprocess(const cv::Mat& img,
 	else
 		sample_resized.convertTo(sample_float, CV_32FC1);
 
-	cv::Mat sample_normalized;
-	subtract(sample_float, mean_, sample_normalized);
+	if (bHaveMeanFile == true)
+	{
+		cv::Mat sample_normalized;
+		subtract(sample_float, mean_, sample_normalized);
 
-	/* This operation will write the separate BGR planes directly to the
-	 * input layer of the network because it is wrapped by the cv::Mat
-	 * objects in input_channels. */
-	split(sample_normalized, *input_channels);
+		/* This operation will write the separate BGR planes directly to the
+		* input layer of the network because it is wrapped by the cv::Mat
+		* objects in input_channels. */
+		split(sample_normalized, *input_channels);
+	}
+	else
+	{
+		/* This operation will write the separate BGR planes directly to the
+		* input layer of the network because it is wrapped by the cv::Mat
+		* objects in input_channels. */
+		split(sample_float, *input_channels);
+	}
 
 	CHECK(reinterpret_cast<float*>(input_channels->at(0).data)
 		== net_->input_blobs()[0]->cpu_data())
@@ -261,20 +276,34 @@ vector<string> split(string str, string pattern)
 
 int main(int argc, char** argv)
 {
-	if (argc != 6 && argc != 7 && argc != 8)
+	if (argc != 5 && argc != 6 && argc != 7 && argc != 8)
 	{
+		std::cerr << "labels.txt : " << "ImageType1 0 \r\n ImageType2 1 \r\n ImageType3 2" << std::endl;
+		std::cerr << "TestImgFolderPath : " << "D:\TestImgFolderPath" << std::endl;
+		std::cerr << "TestImgLabels.txt : " << "Image1.jpg 0 \r\n Image2.jpg 1 \r\n Image3.jpg 2" << std::endl;
+
+		// 5
+		std::cerr << "Usage: " << argv[0]
+			<< " deploy.prototxt network.caffemodel"
+			<< " labels.txt img.jpg" << std::endl;
+
+		std::cerr << " Or " << std::endl;
+
+		// 6
 		std::cerr << "Usage: " << argv[0]
 			<< " deploy.prototxt network.caffemodel"
 			<< " mean.binaryproto labels.txt img.jpg" << std::endl;
 
 		std::cerr << " Or " << std::endl;
-
+		//-----------------------------------------------------------------------------------------------------
+		// 7
 		std::cerr << "Usage: " << argv[0]
 			<< " deploy.prototxt network.caffemodel"
-			<< " mean.binaryproto labels.txt TestImgFolderPath TestImgLabels.txt" << std::endl;
+			<< " labels.txt TestImgFolderPath TestImgLabels.txt ImgOutPut.txt" << std::endl;
 
 		std::cerr << " Or " << std::endl;
 
+		//8
 		std::cerr << "Usage: " << argv[0]
 			<< " deploy.prototxt network.caffemodel"
 			<< " mean.binaryproto labels.txt TestImgFolderPath TestImgLabels.txt ImgOutPut.txt" << std::endl;
@@ -284,22 +313,59 @@ int main(int argc, char** argv)
 
 	google::InitGoogleLogging(argv[0]);
 
-	string model_file = argv[1];
-	string trained_file = argv[2];
-	string mean_file = argv[3];
-	string label_file = argv[4];
+	string model_file;
+	string trained_file;
+	string mean_file;
+	string label_file;
+
+	// 识别一个或者多个图片
+	bool bClassifyOneOrMore = true;
+	// 是否需要 Mean File
+	bool bHaveMeanFile = true;
+	
+	if (argc == 5 || argc == 7)
+	{
+		model_file = argv[1];
+		trained_file = argv[2];
+		mean_file = "";
+		label_file = argv[3];
+		bHaveMeanFile = false;
+	}
+	else
+	{
+		model_file = argv[1];
+		trained_file = argv[2];
+		mean_file = argv[3];
+		label_file = argv[4];
+	}
+
 	Classifier classifier(model_file, trained_file, mean_file, label_file);
 
-	if (argc == 6)
+	// 需要识别多个图片
+	if (argc == 7 || argc == 8)
 	{
-		string file = argv[5];
+		bClassifyOneOrMore = false;
+	}
+
+	if (bClassifyOneOrMore == true)
+	{
+		string file;
+		
+		if (argc == 5)
+		{
+			file = argv[4];
+		}
+		else if (argc == 6)
+		{
+			file = argv[5];
+		}
 
 		std::cout << "---------- Prediction for "
 			<< file << " ----------" << std::endl;
 
 		cv::Mat img = cv::imread(file, -1);
 		CHECK(!img.empty()) << "Unable to decode image " << file;
-		vector<Prediction> predictions = classifier.Classify(img);
+		vector<Prediction> predictions = classifier.Classify(img, bHaveMeanFile);
 
 		/* Print the top N predictions. */
 		for (size_t i = 0; i < predictions.size(); ++i)
@@ -312,16 +378,31 @@ int main(int argc, char** argv)
 				<< "\"" << std::endl;
 		}
 	}
-	else if (argc == 7)
+	else
 	{
-		string imgfilesPath = argv[5];
-		string TestImgLabels_file = argv[6];
+		string imgfilesPath;		  // D:\PicData\cells\ForTestModel
+		string TestImgLabels_file;	 // 0.bmp \r\n 1.bmp
+		string outputFile;			// D:\\1.txt
+
+		if (argc == 7)
+		{
+			imgfilesPath = argv[4];
+			TestImgLabels_file = argv[5];
+			outputFile = argv[6];
+		}
+		else if (argc == 8)
+		{
+			imgfilesPath = argv[5];
+			TestImgLabels_file = argv[6];
+			outputFile = argv[7];
+		}
 
 		std::ifstream TestImglabels(TestImgLabels_file.c_str());
 		CHECK(TestImglabels) << "Unable to open TestImglabels file " << TestImgLabels_file;
 		string line;
 		const char * splitChar = " ";
 		int iCount_AllImage = 0;
+
 		int iCount_Confidence_First = 0;
 		int iCount_Confidence_First_MoreThan_80 = 0;
 		// 识别错误的
@@ -330,6 +411,8 @@ int main(int argc, char** argv)
 		int iCount_Confidence_Error_First_MoreThan_80 = 0;
 
 		std::cout << "How many pic was prediction : " << std::endl;
+
+		std::ofstream myfile(outputFile, ios::out);
 
 		while (getline(TestImglabels, line))
 		{
@@ -341,10 +424,13 @@ int main(int argc, char** argv)
 			cv::Mat img = cv::imread(file, -1);
 			CHECK(!img.empty()) << "Unable to decode image " << file;
 
-			vector<Prediction> predictions = classifier.Classify(img);
+			vector<Prediction> predictions = classifier.Classify(img, bHaveMeanFile);
 			// 只需要第一个
 			Prediction p = predictions[0];
 			vector<string> result_prediction = split(p.first, splitChar);
+
+			// 需要输出的记录文件
+			myfile << result[0] << " " << result_prediction[0] << " " << result_prediction[1] << " " << p.second << std::endl;
 
 			if (result[1].compare(result_prediction[1]) == 0)
 			{
@@ -378,7 +464,9 @@ int main(int argc, char** argv)
 			std::cout << "\b\b\b\b\b\b\b";//回删 6 + 1 个字符，使数字在原地变化
 		}
 
-		std::cout 
+		myfile.close();
+
+		std::cout
 			<< "All Test Images :"
 			<< iCount_AllImage
 			<< std::endl;
@@ -408,50 +496,8 @@ int main(int argc, char** argv)
 			<< (float)iCount_Confidence_Error_First_MoreThan_50 / (float)iCount_AllImage
 			<< std::endl;
 	}
-	else if (argc == 8)
-	{
-		string imgfilesPath = argv[5];		  // D:\PicData\cells\ForTestModel
-		string TestImgLabels_file = argv[6]; // 0.bmp \r\n 1.bmp
-		string outputFile = argv[7];		// D:\\1.txt
 
-		std::ifstream TestImglabels(TestImgLabels_file.c_str());
-		CHECK(TestImglabels) << "Unable to open TestImglabels file " << TestImgLabels_file;
-		string line;
-		const char * splitChar = " ";
-		int iCount_AllImage = 0;
-
-		std::cout << "How many pic was prediction : " << std::endl;
-
-		std::ofstream myfile(outputFile, ios::out);
-
-		while (getline(TestImglabels, line))
-		{
-			// result[0] 图片名称  result[0] 图片对应的认为分类编号对应着 label_file
-			vector<string> result = split(line, splitChar);
-
-			string file = imgfilesPath + "\\" + result[0];
-
-			cv::Mat img = cv::imread(file, -1);
-			CHECK(!img.empty()) << "Unable to decode image " << file;
-
-			vector<Prediction> predictions = classifier.Classify(img);
-			// 只需要第一个
-			Prediction p = predictions[0];
-			vector<string> result_prediction = split(p.first, splitChar);
-
-			myfile << result[0] << " " << result_prediction[0] << " " << result_prediction[1] << p.second << std::endl;
-
-			iCount_AllImage++;
-
-			std::cout.width(6);// iCount_AllImage 的输出为 6 位宽  
-			std::cout << iCount_AllImage << "."; // 算一个 1
-			std::cout << "\b\b\b\b\b\b\b";//回删 6 + 1 个字符，使数字在原地变化
-		}
-
-		myfile.close();
-	}
-
-
+	return 1;
 }
 #else
 int main(int argc, char** argv) {
