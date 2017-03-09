@@ -11,6 +11,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <glog/logging.h>
 
 #ifdef USE_OPENCV
 using namespace caffe; // NOLINT(build/namespaces)
@@ -40,7 +41,7 @@ private:
 	                vector<cv::Mat>* input_channels, bool bHaveMeanFile);
 
 private:
-	shared_ptr<Net<float>> net_;
+	boost::shared_ptr<Net<float>> net_;
 	cv::Size input_geometry_;
 	int num_channels_;
 	cv::Mat mean_;
@@ -427,12 +428,20 @@ int main(int argc, char** argv)
 			vector<Prediction> predictions = classifier.Classify(img, bHaveMeanFile);
 			// 只需要第一个
 			Prediction p = predictions[0];
+
+			// p.first --> "c1_NeedTrain 1"
 			vector<string> result_prediction = split(p.first, splitChar);
 
 			// 需要输出的记录文件
-			myfile << result[0] << " " << result_prediction[0] << " " << result_prediction[1] << " " << p.second << std::endl;
+			myfile << result[0] << " " << result[1] << " " << result_prediction[1] << " " << result_prediction[0] << " " << p.second << std::endl;
 
-			if (result[1].compare(result_prediction[1]) == 0)
+			/*
+						0.jpg				7						7							w2_NeedTrain					0.981138
+						1.jpg				7						7							w2_NeedTrain					0.999996
+						2.jpg				7						6							w1_NeedTrain					0.990527
+			*/
+
+			if (result[1].compare(result_prediction[1]) == 0 || result[2][0] == result_prediction[0][0])
 			{
 				iCount_Confidence_First++;
 				if (p.second >= 0.8f)
