@@ -433,15 +433,15 @@ int main(int argc, char** argv)
 			vector<string> result_prediction = split(p.first, splitChar);
 
 			// 需要输出的记录文件
-			myfile << result[0] << " " << result[1] << " " << result_prediction[1] << " " << result_prediction[0] << " " << p.second << std::endl;
+			myfile << result[0] << " " << result_prediction[0]<< " " << result_prediction[1] << " " << result[1] << " " << p.second << std::endl;
 
 			/*
-						0.jpg				7						7							w2_NeedTrain					0.981138
-						1.jpg				7						7							w2_NeedTrain					0.999996
-						2.jpg				7						6							w1_NeedTrain					0.990527
+						0.jpg				w2_NeedTrain						7						7					0.981138
+						1.jpg				w2_NeedTrain						7						7					0.999996
+						2.jpg				w1_NeedTrain						7						6					0.990527
 			*/
 
-			if (result[1].compare(result_prediction[1]) == 0 || result[2][0] == result_prediction[0][0])
+			if (result[1].compare(result_prediction[1]) == 0 || result[1][0] == result_prediction[0][0])
 			{
 				iCount_Confidence_First++;
 				if (p.second >= 0.8f)
