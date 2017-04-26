@@ -428,12 +428,20 @@ int main(int argc, char** argv)
 			vector<Prediction> predictions = classifier.Classify(img, bHaveMeanFile);
 			// 只需要第一个
 			Prediction p = predictions[0];
-
 			// p.first --> "c1_NeedTrain 1"
 			vector<string> result_prediction = split(p.first, splitChar);
 
+			// 只需要第一个
+			Prediction p_2 = predictions[1];
+			// p.first --> "c1_NeedTrain 1"
+			vector<string> result_prediction_2 = split(p_2.first, splitChar);
+
+
+
 			// 需要输出的记录文件
-			myfile << result[0] << " " << result_prediction[0]<< " " << result_prediction[1] << " " << result[1] << " " << p.second << std::endl;
+			myfile << result[0] << " " << result_prediction[0]<< " " << result_prediction[1] << " " << result[1] << " " << p.second	
+								<< " " << result_prediction_2[0] << " " << result_prediction_2[1] << " " << result[1] << " " << p_2.second
+				<< std::endl;
 
 			/*
 						0.jpg				w2_NeedTrain						7						7					0.981138
