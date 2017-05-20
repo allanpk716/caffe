@@ -436,11 +436,94 @@ int main(int argc, char** argv)
 			// p.first --> "c1_NeedTrain 1"
 			vector<string> result_prediction_2 = split(p_2.first, splitChar);
 
+			/*
+				WBC,        //1
+				RBC,        //2
+				SQEP,       //3
+				CAOX,       //4
+				URIC,       //5
+				HYA,        //6
+				NSE,        //7
+				BACT,       //8
+				MYCETE,     //9
+				MUCS,       //10
+				GRAN,       //11
+				YST,        //12
+				BALLBACT,   //13
+				UNDF,       //14
+				IMPURITY,   //15
+				UNCX        //16
+
+				b1_NeedTrain 0 8 BACT
+				b2_NeedTrain 1 8 BACT
+				c1_1_NeedTrain 2 4 CAOX
+				c1_NeedTrain 3 4 CAOX
+				c2_NeedTrain 4 4 CAOX
+				c3_NeedTrain 5 4 CAOX
+				c4_NeedTrain 6 4 CAOX
+				c5_NeedTrain 7 4 CAOX
+				c6_NeedTrain 8 4 CAOX
+				I_NeedTrain 9 15 IMPURITY
+				r1_NeedTrain 10 2 RBC
+				r2_NeedTrain 11 2 RBC
+				r3_NeedTrain 12 2 RBC
+				r4_NeedTrain 13 2 RBC
+				r5_NeedTrain 14 2 RBC
+				uc1_NeedTrain 15 5 URIC
+				uc2_NeedTrain 16 5 URIC
+				w1_NeedTrain 17 1 WBC
+				w2_NeedTrain 18 1 WBC
+				y2_NeedTrain 19 12 YST
+				y_NeedTrain 20 12 YST
+			*/
+
+			string BigClass = "";
+			if (result[1].compare("0") == 0 || result[1].compare("1") == 0)
+			{
+				// BACT
+				BigClass = "8";
+			}
+			else if (result[1].compare("2") == 0 || result[1].compare("3") == 0
+				|| result[1].compare("4") == 0 || result[1].compare("5") == 0
+				|| result[1].compare("6") == 0 || result[1].compare("7") == 0
+				|| result[1].compare("8") == 0)
+			{
+				// CAOX
+				BigClass = "4";
+			}
+			else if (result[1].compare("9") == 0)
+			{
+				// IMPURITY
+				BigClass = "15";
+			}
+			else if (result[1].compare("10") == 0 || result[1].compare("11") == 0
+				|| result[1].compare("12") == 0 || result[1].compare("13") == 0
+				|| result[1].compare("14") == 0)
+			{
+				// RBC
+				BigClass = "2";
+			}
+			else if (result[1].compare("15") == 0 || result[1].compare("16") == 0)
+			{
+				// URIC
+				BigClass = "5";
+			}
+			else if (result[1].compare("17") == 0 || result[1].compare("18") == 0)
+			{
+				// WBC
+				BigClass = "1";
+			}
+			else if (result[1].compare("19") == 0 || result[1].compare("20") == 0)
+			{
+				// YST
+				BigClass = "12";
+			}
 
 
 			// 需要输出的记录文件
-			myfile << result[0] << " " << result_prediction[0]<< " " << result_prediction[1] << " " << result[1] << " " << p.second	
+			myfile << result[0] << " " << result_prediction[0]<< " " << result_prediction[1] << " " << result[1] << " " << p.second
 								<< " " << result_prediction_2[0] << " " << result_prediction_2[1] << " " << result[1] << " " << p_2.second
+								<< " " << BigClass  // 这个是大类编号 
 				<< std::endl;
 
 			/*
