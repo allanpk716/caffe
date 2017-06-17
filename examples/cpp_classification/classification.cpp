@@ -7,15 +7,64 @@
 
 #include <algorithm>
 #include <iosfwd>
-#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 #include <glog/logging.h>
 
+#include <windows.h>
+//#include <winbase.h>
+#include <share.h>
+#include <processthreadsapi.h>
+#include <sysinfoapi.h>
+
 #ifdef USE_OPENCV
 using namespace caffe; // NOLINT(build/namespaces)
 using std::string;
+
+DEFINE_bool(fillBackGround, false,
+	"Fill BackGround");
+
+DEFINE_bool(pipe, false,
+	"Use Pipe");
+
+DEFINE_int32(cpuIndex, -1, "Which Cpu Run With");
+
+
+cv::Scalar sc_gray = cv::Scalar(160, 160, 160);
+
+cv::Mat rotateImage1(cv::Mat img, int degree)
+{
+	cv::Mat ucImgRotate;
+	
+	double a = sin(degree  * CV_PI / 180);
+	double b = cos(degree  * CV_PI / 180);
+	int width = img.cols;
+	int height = img.rows;
+	int width_rotate = int(height * fabs(a) + width * fabs(b));
+	int height_rotate = int(width * fabs(a) + height * fabs(b));
+
+	cv::Point center = cv::Point(img.cols / 2, img.rows / 2);
+
+	cv::Mat map_matrix = cv::getRotationMatrix2D(center, degree, 1.0);
+	map_matrix.at<double>(0, 2) += (width_rotate - width) / 2;     // 修改坐标偏移
+	map_matrix.at<double>(1, 2) += (height_rotate - height) / 2;   // 修改坐标偏移
+	
+	cv::warpAffine(img, ucImgRotate, map_matrix, { width_rotate, height_rotate },
+	         CV_INTER_CUBIC | CV_WARP_FILL_OUTLIERS, cv::BORDER_CONSTANT, sc_gray);
+	
+	return ucImgRotate;
+}
+
+cv::Mat rotateImage90(cv::Mat img)
+{
+	cv::Mat dst;
+	cv::Mat dst2;
+	cv::transpose(img, dst);
+	cv::flip(dst, dst2, 1);
+	return dst2;
+}
+
 
 /* Pair (label, confidence) representing a prediction. */
 typedef pair<string, float> Prediction;
@@ -28,17 +77,17 @@ public:
 	           const string& mean_file,
 	           const string& label_file);
 
-	vector<Prediction> Classify(const cv::Mat& img, bool bHaveMeanFile = true, int N = 5);
+	vector<Prediction> Classify(const cv::Mat& img, bool bHaveMeanFile = true, bool bBackGround = false, int N = 5);
 
 private:
 	void SetMean(const string& mean_file);
 
-	vector<float> Predict(const cv::Mat& img, bool bHaveMeanFile);
+	vector<float> Predict(const cv::Mat& img, bool bHaveMeanFile, bool bBackGround);
 
 	void WrapInputLayer(vector<cv::Mat>* input_channels);
 
 	void Preprocess(const cv::Mat& img,
-	                vector<cv::Mat>* input_channels, bool bHaveMeanFile);
+	                vector<cv::Mat>* input_channels, bool bHaveMeanFile, bool bBackGround);
 
 private:
 	boost::shared_ptr<Net<float>> net_;
@@ -76,7 +125,7 @@ Classifier::Classifier(const string& model_file,
 	SetMean(mean_file);
 
 	/* Load labels. */
-	std::ifstream labels(label_file.c_str());
+	std::ifstream labels(label_file.c_str(), _SH_DENYNO);
 	CHECK(labels) << "Unable to open labels file " << label_file;
 	string line;
 	while (getline(labels, line))
@@ -108,9 +157,9 @@ static vector<int> Argmax(const vector<float>& v, int N)
 }
 
 /* Return the top N predictions. */
-vector<Prediction> Classifier::Classify(const cv::Mat& img, bool bHaveMeanFile, int N)
+vector<Prediction> Classifier::Classify(const cv::Mat& img, bool bHaveMeanFile, bool bBackGround, int N)
 {
-	vector<float> output = Predict(img, bHaveMeanFile);
+	vector<float> output = Predict(img, bHaveMeanFile, bBackGround);
 
 	N = std::min<int>(labels_.size(), N);
 	vector<int> maxN = Argmax(output, N);
@@ -162,7 +211,7 @@ void Classifier::SetMean(const string& mean_file)
 	mean_ = cv::Mat(input_geometry_, mean.type(), channel_mean);
 }
 
-vector<float> Classifier::Predict(const cv::Mat& img, bool bHaveMeanFile)
+vector<float> Classifier::Predict(const cv::Mat& img, bool bHaveMeanFile, bool bBackGround)
 {
 	Blob<float>* input_layer = net_->input_blobs()[0];
 	input_layer->Reshape(1, num_channels_,
@@ -173,7 +222,7 @@ vector<float> Classifier::Predict(const cv::Mat& img, bool bHaveMeanFile)
 	vector<cv::Mat> input_channels;
 	WrapInputLayer(&input_channels);
 
-	Preprocess(img, &input_channels, bHaveMeanFile);
+	Preprocess(img, &input_channels, bHaveMeanFile, bBackGround);
 
 	net_->Forward();
 
@@ -205,7 +254,7 @@ void Classifier::WrapInputLayer(vector<cv::Mat>* input_channels)
 }
 
 void Classifier::Preprocess(const cv::Mat& img,
-                            vector<cv::Mat>* input_channels, bool bHaveMeanFile)
+                            vector<cv::Mat>* input_channels, bool bHaveMeanFile, bool bBackGround)
 {
 	/* Convert the input image to the input image format of the network. */
 	cv::Mat sample;
@@ -219,6 +268,42 @@ void Classifier::Preprocess(const cv::Mat& img,
 		cvtColor(img, sample, cv::COLOR_GRAY2BGR);
 	else
 		sample = img;
+
+	if (bBackGround == true)
+	{
+		// Size Width Height
+		double dHeight= sample.rows;
+		double dWidth = sample.cols;
+		double dWidthAndHeight = 0;
+
+		if (dHeight > dWidth)
+		{
+			sample = rotateImage90(sample);
+
+			dHeight = sample.rows;
+			dWidth = sample.cols;
+
+			dWidthAndHeight = dWidth;
+		}
+		else if (dWidth > dHeight)
+		{
+			dWidthAndHeight = dWidth;
+		}
+		else
+		{
+			dWidthAndHeight = dWidth;
+		}
+
+		// 填充背景色 白色图像
+		cv::Mat white_img(cv::Size(dWidthAndHeight, dWidthAndHeight), CV_16UC3, sc_gray);//cv::Scalar::all(255)
+		// 设置画布绘制区域并复制  
+		cv::Rect roi_rect = cv::Rect(0, dWidthAndHeight / 2.0f - dHeight / 2.0f, dWidth, dHeight);
+		sample.copyTo(white_img(roi_rect));
+
+		sample = white_img;
+
+		cv::imwrite("d:\\merge.jpg", white_img);
+	}
 
 	cv::Mat sample_resized;
 	if (sample.size() != input_geometry_)
@@ -275,11 +360,31 @@ vector<string> split(string str, string pattern)
 	return result;
 }
 
+// 得到图像的模糊度 Laplacian
+double GetFuzzyValue(cv::Mat imageSource)
+{
+	cv::Mat imageSobel;
+
+	Laplacian(imageSource, imageSobel, CV_8U);
+
+	//图像的平均灰度  
+	double meanValue = 0.0;
+	meanValue = mean(imageSobel)[0];
+
+	return meanValue;
+}
+
 int main(int argc, char** argv)
 {
+#ifndef GFLAGS_GFLAGS_H_
+	namespace gflags = google;
+#endif
+
+	gflags::ParseCommandLineFlags(&argc, &argv, true);
+
 	if (argc != 5 && argc != 6 && argc != 7 && argc != 8)
 	{
-		std::cerr << "labels.txt : " << "ImageType1 0 \r\n ImageType2 1 \r\n ImageType3 2" << std::endl;
+		std::cerr << "labels.txt : \r\n" << "ImageType1 0 \r\n ImageType2 1 \r\n ImageType3 2" << std::endl;
 		std::cerr << "TestImgFolderPath : " << "D:\TestImgFolderPath" << std::endl;
 		std::cerr << "TestImgLabels.txt : " << "Image1.jpg 0 \r\n Image2.jpg 1 \r\n Image3.jpg 2" << std::endl;
 
@@ -313,6 +418,19 @@ int main(int argc, char** argv)
 	}
 
 	google::InitGoogleLogging(argv[0]);
+
+	const bool bFillBackGround = FLAGS_fillBackGround;
+	const bool bPipe = FLAGS_pipe;
+	int iCpu_Index = FLAGS_cpuIndex;
+
+	if (iCpu_Index != -1)
+	{
+		SYSTEM_INFO info;
+		GetSystemInfo(&info);
+
+		int iNumberofProcessors = info.dwNumberOfProcessors;
+		SetThreadAffinityMask(GetCurrentThread(), pow(2, (iNumberofProcessors - iCpu_Index - 1)));
+	}
 
 	string model_file;
 	string trained_file;
@@ -366,7 +484,12 @@ int main(int argc, char** argv)
 
 		cv::Mat img = cv::imread(file, -1);
 		CHECK(!img.empty()) << "Unable to decode image " << file;
-		vector<Prediction> predictions = classifier.Classify(img, bHaveMeanFile);
+
+		vector<Prediction> predictions = classifier.Classify(img, bHaveMeanFile, bFillBackGround);
+
+		double dFuzzy = GetFuzzyValue(img);
+
+		std::cout << dFuzzy << std::endl;
 
 		/* Print the top N predictions. */
 		for (size_t i = 0; i < predictions.size(); ++i)
@@ -398,7 +521,7 @@ int main(int argc, char** argv)
 			outputFile = argv[7];
 		}
 
-		std::ifstream TestImglabels(TestImgLabels_file.c_str());
+		std::ifstream TestImglabels(TestImgLabels_file.c_str(), _SH_DENYNO);
 		CHECK(TestImglabels) << "Unable to open TestImglabels file " << TestImgLabels_file;
 		string line;
 		const char * splitChar = " ";
@@ -425,7 +548,7 @@ int main(int argc, char** argv)
 			cv::Mat img = cv::imread(file, -1);
 			CHECK(!img.empty()) << "Unable to decode image " << file;
 
-			vector<Prediction> predictions = classifier.Classify(img, bHaveMeanFile);
+			vector<Prediction> predictions = classifier.Classify(img, bHaveMeanFile, bFillBackGround);
 			// 只需要第一个
 			Prediction p = predictions[0];
 			// p.first --> "c1_NeedTrain 1"
@@ -437,51 +560,42 @@ int main(int argc, char** argv)
 			vector<string> result_prediction_2 = split(p_2.first, splitChar);
 
 			/*
-				WBC,        //1
-				RBC,        //2
-				SQEP,       //3
-				CAOX,       //4
-				URIC,       //5
-				HYA,        //6
-				NSE,        //7
-				BACT,       //8
-				MYCETE,     //9
-				MUCS,       //10
-				GRAN,       //11
-				YST,        //12
-				BALLBACT,   //13
-				UNDF,       //14
-				IMPURITY,   //15
-				UNCX        //16
+				WBC,        //0
+				RBC,        //1
+				CAOX,       //2
+				URIC,       //3
+				BACT,       //4
+				YST,        //5
+				IMPURITY,   //6
 
-				b1_NeedTrain 0 8 BACT
-				b2_NeedTrain 1 8 BACT
-				c1_1_NeedTrain 2 4 CAOX
-				c1_NeedTrain 3 4 CAOX
-				c2_NeedTrain 4 4 CAOX
-				c3_NeedTrain 5 4 CAOX
-				c4_NeedTrain 6 4 CAOX
-				c5_NeedTrain 7 4 CAOX
-				c6_NeedTrain 8 4 CAOX
-				I_NeedTrain 9 15 IMPURITY
-				r1_NeedTrain 10 2 RBC
-				r2_NeedTrain 11 2 RBC
-				r3_NeedTrain 12 2 RBC
-				r4_NeedTrain 13 2 RBC
-				r5_NeedTrain 14 2 RBC
-				uc1_NeedTrain 15 5 URIC
-				uc2_NeedTrain 16 5 URIC
-				w1_NeedTrain 17 1 WBC
-				w2_NeedTrain 18 1 WBC
-				y2_NeedTrain 19 12 YST
-				y_NeedTrain 20 12 YST
+				b1_NeedTrain 0
+				b2_NeedTrain 1
+				c1_1_NeedTrain 2
+				c1_NeedTrain 3
+				c2_NeedTrain 4
+				c3_NeedTrain 5
+				c4_NeedTrain 6
+				c5_NeedTrain 7
+				c6_NeedTrain 8
+				I_NeedTrain 9
+				r1_NeedTrain 10
+				r2_NeedTrain 11
+				r3_NeedTrain 12
+				r4_NeedTrain 13
+				r5_NeedTrain 14
+				uc1_NeedTrain 15
+				uc2_NeedTrain 16
+				w1_NeedTrain 17
+				w2_NeedTrain 18
+				y2_NeedTrain 19
+				y_NeedTrain 20
 			*/
 
 			string BigClass = "";
 			if (result[1].compare("0") == 0 || result[1].compare("1") == 0)
 			{
 				// BACT
-				BigClass = "8";
+				BigClass = "4";
 			}
 			else if (result[1].compare("2") == 0 || result[1].compare("3") == 0
 				|| result[1].compare("4") == 0 || result[1].compare("5") == 0
@@ -489,41 +603,43 @@ int main(int argc, char** argv)
 				|| result[1].compare("8") == 0)
 			{
 				// CAOX
-				BigClass = "4";
+				BigClass = "2";
 			}
 			else if (result[1].compare("9") == 0)
 			{
 				// IMPURITY
-				BigClass = "15";
+				BigClass = "6";
 			}
 			else if (result[1].compare("10") == 0 || result[1].compare("11") == 0
 				|| result[1].compare("12") == 0 || result[1].compare("13") == 0
 				|| result[1].compare("14") == 0)
 			{
 				// RBC
-				BigClass = "2";
+				BigClass = "1";
 			}
 			else if (result[1].compare("15") == 0 || result[1].compare("16") == 0)
 			{
 				// URIC
-				BigClass = "5";
+				BigClass = "3";
 			}
 			else if (result[1].compare("17") == 0 || result[1].compare("18") == 0)
 			{
 				// WBC
-				BigClass = "1";
+				BigClass = "0";
 			}
 			else if (result[1].compare("19") == 0 || result[1].compare("20") == 0)
 			{
 				// YST
-				BigClass = "12";
+				BigClass = "5";
 			}
 
+			double dFuzzy = GetFuzzyValue(img);
 
 			// 需要输出的记录文件
 			myfile << result[0] << " " << result_prediction[0]<< " " << result_prediction[1] << " " << result[1] << " " << p.second
 								<< " " << result_prediction_2[0] << " " << result_prediction_2[1] << " " << result[1] << " " << p_2.second
 								<< " " << BigClass  // 这个是大类编号 
+								<< " " << dFuzzy    // 这个是模糊度（清晰度）
 				<< std::endl;
 
 			/*

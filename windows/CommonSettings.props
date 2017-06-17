@@ -4,8 +4,8 @@
     <PropertyGroup Label="UserMacros">
         <BuildDir>$(SolutionDir)..\Build</BuildDir>
         <!--NOTE: CpuOnlyBuild and UseCuDNN flags can't be set at the same time.-->
-        <CpuOnlyBuild>false</CpuOnlyBuild>
-        <UseCuDNN>true</UseCuDNN>
+        <CpuOnlyBuild>true</CpuOnlyBuild>
+        <UseCuDNN>false</UseCuDNN>
         <CudaVersion>8.0</CudaVersion>
         <!-- NOTE: If Python support is enabled, PythonDir (below) needs to be
          set to the root of your Python installation. If your Python installation
@@ -18,7 +18,7 @@
 
         <!-- Set CUDA architecture suitable for your GPU.
          Setting proper architecture is important to mimize your run and compile time. -->
-        <CudaArchitecture>compute_35,sm_35;compute_52,sm_52,compute_61,sm_61</CudaArchitecture>
+        <CudaArchitecture>compute_20,sm_20;compute_35,sm_35;compute_52,sm_52;compute_61,sm_61</CudaArchitecture>
 
         <!-- CuDNN 3 and 4 are supported -->
         <CuDnnPath>D:\cudnn\</CuDnnPath>

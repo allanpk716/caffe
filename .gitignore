@@ -104,3 +104,4 @@ MANIFEST-*
 *.opensdf
 *.pdb
 *.props
+/windows/x64/Debug
